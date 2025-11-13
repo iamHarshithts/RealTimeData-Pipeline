@@ -1,0 +1,4 @@
+kafka-python
+python-dotenv
+boto3
+pyspark==3.5.0
