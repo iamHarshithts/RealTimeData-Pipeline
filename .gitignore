@@ -3,4 +3,7 @@ env/
 __pycache__/
 
 .env
-
+config/__pycache__/
+__pycache__/
+core/__pycache__/
+utils/__pycache__/
