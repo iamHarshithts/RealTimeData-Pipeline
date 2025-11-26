@@ -21,14 +21,14 @@ def create_bucket():
         existing_buckets = [b['Name'] for b in s3.list_buckets().get('Buckets', [])]
         if bucketName not in existing_buckets:
             s3.create_bucket(Bucket=bucketName)
-            print(f"✅ Created new bucket: {bucketName}")
+            print(f"Created new bucket: {bucketName}")
         else:
-            print(f"🪣 Bucket '{bucketName}' already exists. Using it.")
+            print(f"Bucket '{bucketName}' already exists. Using it.")
     except Exception as e:
         if "BucketAlreadyOwnedByYou" in str(e):
-            print(f"🪣 Bucket '{bucketName}' already exists. Using it.")
+            print(f"Bucket '{bucketName}' already exists. Using it.")
         else:
-            print(f"⚠️ Error checking/creating bucket: {e}")
+            print(f"Error checking/creating bucket: {e}")
     return bucketName
 
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     for b in balances:
         producer.send("account_balances", value=b)
     producer.flush()
-    print("✅ All static data sent to Kafka")
+    print("All static data sent to Kafka")
 
     threading.Thread(target=consume_user_profiles, args=(len(users), bucket_name), daemon=True).start()
     threading.Thread(target=consume_merchants, args=(len(merchants), bucket_name), daemon=True).start()
