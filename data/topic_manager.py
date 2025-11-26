@@ -5,11 +5,11 @@ import time
 KAFKA_BOOTSTRAP = "localhost:9092"
 KAFKA_BIN = "/home/harshithts/Downloads/Kafka/bin"
 def reset_topics(topics):
-    print("✅ Resetting Kafka topics (delete + recreate)...")
+    print("Resetting Kafka topics")
 
-    # Delete topics
+    # deleete all topics
     for topic in topics:
-        print(f"🗑️ Deleting topic: {topic}")
+        print(f"Deleting topic: {topic}")
         subprocess.run([
             f"{KAFKA_BIN}/kafka-topics.sh",
             "--delete",
@@ -17,11 +17,9 @@ def reset_topics(topics):
             "--topic", topic
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    time.sleep(1)  # Kafka needs time to delete
-
-    # Recreate topics
+    time.sleep(1)
     for topic in topics:
-        print(f"✅ Creating topic: {topic}")
+        print(f"Creating topic: {topic}")
         subprocess.run([
             f"{KAFKA_BIN}/kafka-topics.sh",
             "--create",
@@ -31,4 +29,4 @@ def reset_topics(topics):
             "--replication-factor", "1"
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    print("✅ All Kafka topics reset successfully.")
+    print("All Kafka topics reset.")
