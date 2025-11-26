@@ -231,5 +231,3 @@ This architecture is a **complete enterprise-grade data engineering pipeline**, 
 * **Containerized orchestration**
 
 
-
-
