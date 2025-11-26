@@ -1,7 +1,6 @@
 version: "3.8"
 
 services:
-
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -9,6 +8,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":${MINIO_CONSOLE_PORT}"
+    volumes:
+      - minio_data:/data  # FIXED: Added volume mapping so data persists
     ports:
       - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
       - "${MINIO_API_PORT}:${MINIO_API_PORT}"
@@ -25,6 +26,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+
   pgadmin:
     image: dpage/pgadmin4
     environment:
@@ -34,36 +40,37 @@ services:
       - "8000:80"
     depends_on:
       - postgres
-  
 
   airflow-init:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.3  # UPDATED: Latest stable version
     container_name: airflow-init
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/Airflow
+      # FIXED: Changed /Airflow to /${POSTGRES_DB} to match other services
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     entrypoint: /bin/bash
     command: >
       -c "
       echo 'Waiting for PostgreSQL...' &&
-      sleep 10 &&
-      airflow db init &&
       airflow db migrate &&
       airflow users create --username ${AIRFLOW_ADMIN_USER} --firstname ${AIRFLOW_ADMIN_FIRSTNAME} --lastname ${AIRFLOW_ADMIN_LASTNAME} --role Admin --email ${AIRFLOW_ADMIN_EMAIL} --password ${AIRFLOW_ADMIN_PASSWORD} &&
       echo '✅ Airflow DB initialized successfully.'"
 
   airflow-webserver:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.3 # UPDATED: Latest stable version
     container_name: airflow-webserver
     restart: always
     depends_on:
-      - airflow-init
-      - airflow-scheduler
-      - postgres
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor # Suggestion: Better performance than Sequential
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./dags:/opt/airflow/dags
@@ -73,20 +80,21 @@ services:
       - "8080:8080"
     command: webserver
 
-
   airflow-scheduler:
-    image: apache/airflow:2.9.3
+    image: apache/airflow:2.10.3 # UPDATED: Latest stable version
     container_name: airflow-scheduler
     restart: always
     depends_on:
-      - airflow-init
-      - postgres
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       AIRFLOW__WEBSERVER__AUTHENTICATE: "True"
       AIRFLOW__WEBSERVER__AUTH_BACKEND: "airflow.providers.password.auth_backend.password_auth"
-
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
