@@ -1,22 +1,45 @@
-# High-Level Architecture Overview
+# End-to-End Data Engineering Pipeline
 
-## **End-to-End Data Engineering Pipeline (Data Generation → Kafka → MinIO → PySpark → PostgreSQL → Airflow)**
+## Overview
+## **End-to-End Data Engineering Pipeline (Data Generation → Kafka → MinIO → PySpark → PostgreSQL)**
+This project implements a complete **modern data engineering pipeline** using Docker, real-time streaming, batch processing, a data lake, and a data warehouse.
 
-This architecture represents a complete **modern data engineering pipeline**, implemented using **Docker**, with orchestration, real-time streaming, fraud detection, and multi-layered storage.
 
+---
 
-### 1. Data Generation Layer (Simulated Source System)
+## High-Level Architecture
 
-Synthetic financial data is generated using Python + Faker, including:
+```
+[Data Generators]
+       ↓
+   Kafka (Docker)
+       ↓
+   MinIO (Bronze JSON)
+       ↓
+   PySpark Cleaning
+       ↓
+ MinIO (Silver Parquet)
+       ↓
+ PySpark → PostgreSQL
+  (Gold Tables)
+       ↓
+ Real-time Spark Streaming
+       ↓
+ PostgreSQL Fraud Tables
+```
 
-* **User Profiles**
-* **Merchant Information**
-* **Account Balances**
-* **Real-Time Transactions**
+---
 
-This simulates transactional data similar to real banking, e-commerce, or payment platforms.
+## 1. Data Generation Layer
 
-Data is produced into **Kafka topics**:
+Synthetic financial data is generated using **Python + Faker**:
+
+* User profiles
+* Merchant information
+* Account balances
+* Real-time transactions
+
+Data is produced to Kafka topics:
 
 ```
 user_profiles
@@ -27,32 +50,31 @@ transactions
 
 ---
 
-### 2. Kafka – Real-Time Message Streaming Backbone
+## 2. Kafka – Real-Time Streaming (Dockerized)
 
-Kafka serves as the ingestion layer.
-It captures all incoming events and streams them to downstream components.
+Kafka runs fully inside Docker and serves as the event streaming backbone.
 
-### Topics represent different data domains:
+Responsibilities:
 
-* `user_profiles` → static user data
-* `merchant_info` → business data
-* `account_balances` → financial balances
-* `transactions` → continuous streaming data
+* Decoupled producers and consumers
+* Message durability
+* Real-time ingestion
+* Topic-based domain separation
 
-Kafka ensures:
+Topics:
 
-* decoupled producers/consumers
-* buffering
-* event durability
-* real-time ingestion
+* `user_profiles`
+* `merchant_info`
+* `account_balances`
+* `transactions`
 
 ---
 
-### 3. MinIO – S3-Compatible Data Lake (Bronze Layer)
+## 3. MinIO – Data Lake (Bronze Layer)
 
-All Kafka-consumed data is written into MinIO as raw JSON, forming the **Bronze Layer**.
+Kafka consumers persist all raw messages into MinIO as JSON objects.
 
-### Bronze Storage Structure:
+Directory structure:
 
 ```
 bronze/
@@ -62,35 +84,28 @@ bronze/
    transactions-folder/
 ```
 
-MinIO acts as:
+MinIO is used as:
 
-* Object storage
+* Object store
 * Data lake
-* Checkpoint store for streaming
-* Persistent raw data archive
+* Streaming checkpoints
+* Raw data archive
 
 ---
 
-### 4. PySpark Processing (Silver + Gold Layers)
+## 4. PySpark Processing
 
-PySpark reads data from MinIO using the **S3A connector** inside Docker.
-This forms two major transformation layers:
+### 4.1 Silver Layer – Cleaned & Standardized
 
----
+PySpark reads JSON from MinIO and performs:
 
-## 4.1 Silver Layer (Cleaned & Standardized Data)
+* Schema enforcement
+* Deduplication
+* Data cleansing
+* Date normalization
+* Currency/country normalization
 
-PySpark performs:
-
-* schema enforcement
-* filtering invalid IDs
-* trimming & cleaning strings
-* duplicate removal
-* date & time extraction
-* splitting names
-* normalizing country/currency
-
-Silver Layer output is stored as **Parquet** in MinIO:
+Output stored in Parquet format:
 
 ```
 silver/processed-profiles/
@@ -100,134 +115,81 @@ silver/processed-accounts/
 
 ---
 
-### 4.2 Gold Layer (PostgreSQL Warehouse)
+### 4.2 Gold Layer – PostgreSQL Warehouse
 
-Cleaned Silver data is written to PostgreSQL tables:
+Silver layer outputs are loaded into PostgreSQL:
 
-* **USERS**
-* **ACCOUNTS**
-* **MERCHANTS**
+Tables:
 
-These are structured, relationally optimized tables for:
+* USERS
+* ACCOUNTS
+* MERCHANTS
 
-* analytics
-* dashboards
-* reporting
+Use cases:
+
+* Data analytics
+* Reporting
+* Business intelligence
 
 ---
 
-### 5. Real-Time Fraud Detection (Spark Structured Streaming)
+## 5. Real-Time Fraud Detection
 
-Live transaction events from MinIO (Bronze) are processed using **Spark Streaming**.
+Spark Structured Streaming processes transactions from MinIO.
 
-### Fraud Rules include:
+Fraud rules:
 
-* High online amount (> 30,000)
+* Amount > 30,000
 * Suspicious merchants
-* High-risk geolocations
-* Unusually huge amounts
+* High-risk locations
+* Abnormal spending patterns
 
-### Streaming Output:
+Results:
 
 ```
-FraudTransaction      → PostgreSQL
-GenuineTransaction    → PostgreSQL
+FraudTransaction   → PostgreSQL
+GenuineTransaction → PostgreSQL
 ```
 
-Additionally:
+Additional features:
 
-* Fraud events printed on console
-* Checkpointing stored in MinIO
-
-This adds real-time intelligence to the system.
+* Console logging for fraud alerts
+* Checkpointing in MinIO
 
 ---
 
-### 6. Airflow – Orchestration Layer
+## 6. Dockerized Infrastructure
 
-Airflow automates the end-to-end pipeline inside Docker:
+All services run inside Docker containers:
 
-### Orchestrates:
-
-* Kafka topic resets
-* Data ingestion threads
-* Spark Silver batch jobs
-* Spark Gold ETL jobs
-* Real-time streaming jobs
-
-Airflow services:
-
-* **Webserver (UI)** → Port 8080
-* **Scheduler** → Executes DAGs
-* **Metadata DB** → PostgreSQL
-
----
-
-### 7. Dockerized Infrastructure
-
-All services run as Docker containers:
-
-* **MinIO** (object storage)
-* **PostgreSQL** (database)
-* **PgAdmin** (DB GUI)
-* **Airflow Webserver + Scheduler + Init**
-* **Spark jobs run locally but connect to MinIO/Postgres**
+* Kafka
+* MinIO
+* PostgreSQL
+* pgAdmin
 
 Volumes ensure persistence:
 
-* `minio_data` → S3 objects
-* `postgres_data` → databases
-
-This creates a reproducible, production-like development environment.
+* `minio_data` → data lake
+* `postgres_data` → warehouse
 
 ---
 
-### 8. End-to-End Architecture Flow
+## 7. What This Enables
 
-```
-[Data Generators]
-       ↓
-    Kafka
-       ↓ (Consumers)
-    MinIO (Bronze JSON)
-       ↓
-    PySpark Cleaning
-       ↓
- MinIO (Silver Parquet)
-       ↓
- PySpark → PostgreSQL
-  (Gold Tables)
-       ↓
- Real-time Spark Streaming
-       ↓
- PostgreSQL Fraud Tables
-       ↓
-      Airflow
-(Automation & Scheduling)
-```
+* End-to-end streaming + batch
+* Data lake + data warehouse
+* Real-time fraud detection
+* Fully reproducible local environment
+
 
 ---
 
-### 9. What This Architecture Enables
+## 8. Summary
 
-* Real-time event processing
-* Batch ETL (Bronze → Silver → Gold)
-* Fraud detection system
-* Data warehouse in PostgreSQL
-* Reproducible environment through Docker
-* Full orchestration with Airflow
-* Scalable and cloud-ready S3-backed storage
+This project demonstrates a production-style data engineering pipeline without orchestration frameworks, focusing on:
 
----
-
-#### 10. Summary
-
-This architecture is a **complete enterprise-grade data engineering pipeline**, integrating:
-
-* **Real-time streaming**
-* **Batch ETL**
-* **Data lake + Data warehouse**
-* **Fraud detection intelligence**
-* **Containerized orchestration**
-
-
+* Kafka-based ingestion
+* S3-backed data lake
+* Spark transformations
+* PostgreSQL analytics layer
+* Dockerized architecture
