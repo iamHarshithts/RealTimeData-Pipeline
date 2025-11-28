@@ -12,4 +12,4 @@ def adding_bucket_to_env(bucket_name):
     with open(env_path, "w") as f:
         f.writelines(lines)
 
-    print(f"✅ Bucket name '{bucket_name}' added to .env")
+    print(f"Bucket name '{bucket_name}' added to .env")
