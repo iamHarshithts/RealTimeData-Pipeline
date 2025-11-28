@@ -6,6 +6,17 @@ This project implements a complete **modern data engineering pipeline** using Do
 
 
 ---
+### Project Execution
+```
+git clone https://github.com/iamHarshithts/RealTimeData-Pipeline.git
+```
+```
+docker compose up -d
+```
+```
+python3 main.py
+```
+>RUN EXISITING NOTEBOOKS ACCORDINGLY -SilverNote->JDBCNote->StreamNote
 
 ## High-Level Architecture
 
