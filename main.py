@@ -17,7 +17,7 @@ def create_bucket():
     try:
         # Validate bucket name manually (basic check)
         if not all(c.isalnum() or c in "-." for c in bucketName):
-            raise ValueError("❌ Invalid bucket name! Use only lowercase letters, numbers, hyphens, or dots.")
+            raise ValueError("Invalid bucket name! Use only lowercase letters, numbers, hyphens, or dots.")
         existing_buckets = [b['Name'] for b in s3.list_buckets().get('Buckets', [])]
         if bucketName not in existing_buckets:
             s3.create_bucket(Bucket=bucketName)
